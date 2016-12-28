@@ -87,7 +87,7 @@ module Rack
       # Setup body
       if target_request.request_body_permitted? && source_request.body
         target_request.body_stream    = source_request.body
-        target_request.content_length = source_request.content_length.to_i
+        target_request.content_length = source_request.content_length.to_i unless source_request.env['HTTP_TRANSFER_ENCODING'] == 'chunked'
         target_request.content_type   = source_request.content_type if source_request.content_type
         target_request.body_stream.rewind
       end
@@ -120,7 +120,9 @@ module Rack
       headers = (target_response.respond_to?(:headers) && target_response.headers) || self.class.normalize_headers(target_response.to_hash)
       body    = target_response.body || [""]
       body    = [body] unless body.respond_to?(:each)
-
+      # According to https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-14#section-7.1.3.1Acc
+      # should remove hop-by-hop header fields
+      headers.reject! { |k| ['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'].include? k.downcase }
       [target_response.code, headers, body]
     end
 
